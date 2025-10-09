@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from skimage.color.rgb_colors import lightblue, blue
 
 df = pd.read_excel("../Inzynierka/Dziennik2024.xlsx")
 
@@ -51,10 +52,92 @@ def classify_course(wind_dir, boat_course):
 
     return course_type, hals
 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
-def show_speed():
+def show_speed(df,
+               speed_col='sog',
+               angle_col='kat_roznicy',
+               bins=18,
+               figsize=(8,8),
+               save_path=None,
+               rmax=None):
+    """
+    Rysuje wykres biegunowy prędkości względem kąta do wiatru.
+    - df: pandas.DataFrame (Wczytaj dane z pliku już z kątem róznicy)
+    - speed_col: nazwa kolumny z prędkością (domyślnie 'sog - sail over ground')
+    - angle_col: nazwa kolumny z kątem różnicy ('kat_roznicy')
+    - group_col: (opcjonalnie) nazwa kolumny z grupami (np. 'nastawa'), żeby porównać serie
+    - bins: liczba przedziałów do liczenia średniej (na 0..180°)
+    - figsize: rozmiar wykresu
+    - save_path: -> scieżka zapsiu
+    - rmax: max osi radialnej (jeśli None -> autodopasowanie)
+    """
 
-    return None
+    # Sprawdzenie, czy kolumny istnieją
+    for col in [speed_col, angle_col]:
+        if col not in df.columns:
+            raise ValueError(f"Brakuje kolumny: {col}")
+
+    # Kopia i konwersja typów
+    df2 = df.copy()
+    df2[speed_col] = pd.to_numeric(df2[speed_col], errors='coerce')
+    df2[angle_col] = pd.to_numeric(df2[angle_col], errors='coerce')
+    df2 = df2.dropna(subset=[speed_col, angle_col])
+
+    # Normalizacja kąta 0–180°
+    df2['angle360'] = df2[angle_col] % 360
+    df2['angle'] = df2['angle360'].where(df2['angle360'] <= 180, 360 - df2['angle360'])
+    df2['angle_rad'] = np.deg2rad(df2['angle'])
+
+    # Tworzenie figury polarnej
+    fig, ax = plt.subplots(figsize=figsize, subplot_kw={'projection': 'polar'})
+    ax.set_theta_zero_location('N')
+    ax.set_theta_direction(-1)
+
+    # Zakres radialny
+    if rmax is None:
+        rmax = df2[speed_col].max() * 1.1
+    ax.set_ylim(0, rmax)
+
+    # Etykiety kątowe
+    thetas = [0, 30, 45, 60, 90, 120, 135, 150, 180]
+    ax.set_thetagrids(thetas, labels=[f"{t}°" for t in thetas])
+
+    # Punkty pomiarowe (symetrycznie)
+    ax.scatter(df2['angle_rad'], df2[speed_col], s=18, alpha=0.6, color='skyblue', label='pomiary')
+    ax.scatter(-df2['angle_rad'], df2[speed_col], s=18, alpha=0.6, color='skyblue')
+
+    # Oblicz średnie prędkości w przedziałach kątowych
+    bin_edges = np.linspace(0, 180, bins + 1)
+    bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    inds = np.digitize(df2['angle'].values, bin_edges) - 1
+
+    mean_speeds = []
+    for j in range(len(bin_centers)):
+        vals = df2[speed_col].values[inds == j]
+        mean_speeds.append(np.nan if len(vals) == 0 else np.nanmean(vals))
+    mean_speeds = np.array(mean_speeds)
+    valid = ~np.isnan(mean_speeds)
+
+    # Krzywa średniej (też symetrycznie)
+    if valid.any():
+        x = np.deg2rad(bin_centers[valid])
+        y = mean_speeds[valid]
+        ax.plot(x, y, linewidth=2.5, color='navy', label='średnia')
+        ax.plot(-x, y, linewidth=2.5, color='navy')
+
+    # Opisy i legenda
+    ax.set_title("Wykres biegunowy prędkości jachtu względem kąta do wiatru", va='bottom')
+    ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1.05))
+
+    if save_path:
+        fig.savefig(save_path, bbox_inches='tight', dpi=150)
+
+    plt.show()
+    return fig, ax
+
 
 df[["kurs_typ", "hals"]] = df.apply(
     lambda row: pd.Series(classify_course(row["wiatr"], row["cog"])),
@@ -69,4 +152,9 @@ df["kat_roznicy"] = df.apply(
 
 out_path = "../Inzynierka/Dziennik2024_wynik.xlsx"
 df.to_excel(out_path, index=False)
+
+df_wynik = pd.read_excel(out_path)
+show_speed(df, save_path="../Inzynierka/wykres_prędkości.png",rmax=12,figsize=(10,8))
+
+
 
