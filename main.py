@@ -1,14 +1,13 @@
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
-# Wczytanie pliku
-df = pd.read_excel("C:/Users/szybk/OneDrive/Pulpit/Studia/inzynierka/Inzynierka/Dziennik2024.xlsx")
+df = pd.read_excel("../Inzynierka/Dziennik2024.xlsx")
 
-# Czyszczenie nazw kolumn
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_").str.replace("ł", "l").str.replace("ó", "o")
 
-print("Dostępne kolumny:", df.columns.tolist())
+#print("Dostępne kolumny:", df.columns.tolist())
 
-# Mapowanie kierunków wiatru na stopnie (pełna róża wiatrów co 22.5°)
 wind_map = {
     "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
     "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
@@ -17,7 +16,6 @@ wind_map = {
 }
 
 
-# Funkcja określająca kurs
 def classify_course(wind_dir, boat_course):
     if pd.isna(wind_dir) or pd.isna(boat_course):
         return None, None
@@ -29,14 +27,11 @@ def classify_course(wind_dir, boat_course):
 
     boat_course = float(boat_course)
 
-    # różnica kątowa
     diff = (boat_course - wind_deg) % 360
     angle = min(diff, 360 - diff)
 
-    # określenie halsu
     hals = "lewy" if diff <= 180 else "prawy"
 
-    # klasyfikacja kursu – dokładniejsza
     if angle <= 35:
         course_type = "ostry bajdewind"
     elif angle <= 60:
@@ -57,21 +52,21 @@ def classify_course(wind_dir, boat_course):
     return course_type, hals
 
 
-# Dodajemy kolumny
+def show_speed():
+
+    return None
+
 df[["kurs_typ", "hals"]] = df.apply(
     lambda row: pd.Series(classify_course(row["wiatr"], row["cog"])),
     axis=1
 )
 
-# Dodajemy też kolumnę z kątem różnicy
 df["kat_roznicy"] = df.apply(
     lambda row: abs((float(row["cog"]) - wind_map.get(str(row["wiatr"]).strip().upper(), 0)) % 360)
     if pd.notna(row["wiatr"]) and pd.notna(row["cog"]) else None,
     axis=1
 )
 
-# Zapis do nowego pliku
-out_path = "C:/Users/szybk/OneDrive/Pulpit/Studia/inzynierka/Inzynierka/Dziennik2024_wynik.xlsx"
+out_path = "../Inzynierka/Dziennik2024_wynik.xlsx"
 df.to_excel(out_path, index=False)
 
-print("Gotowe! Wynik zapisany do:", out_path)
