@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.color.rgb_colors import lightblue, blue
 
+#oryginalny plik excel
 df = pd.read_excel("../Inzynierka/Dziennik2024.xlsx")
-
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_").str.replace("ł", "l").str.replace("ó", "o")
 
 #print("Dostępne kolumny:", df.columns.tolist())
@@ -16,7 +16,7 @@ wind_map = {
     "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5
 }
 
-
+#Klasyfikacja kierunków
 def classify_course(wind_dir, boat_course):
     if pd.isna(wind_dir) or pd.isna(boat_course):
         return None, None
@@ -52,10 +52,7 @@ def classify_course(wind_dir, boat_course):
 
     return course_type, hals
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
+#biegunowy wykres prędkości
 def show_speed(df,
                speed_col='sog',
                angle_col='kat_roznicy',
@@ -75,7 +72,7 @@ def show_speed(df,
     - rmax: max osi radialnej (jeśli None -> autodopasowanie)
     """
 
-    # Sprawdzenie, czy kolumny istnieją
+    # Sprawdzenie kolumn
     for col in [speed_col, angle_col]:
         if col not in df.columns:
             raise ValueError(f"Brakuje kolumny: {col}")
@@ -83,7 +80,6 @@ def show_speed(df,
     # Kopia i konwersja typów
     df2 = df.copy()
     df2[speed_col] = pd.to_numeric(df2[speed_col], errors='coerce')
-    df2[angle_col] = pd.to_numeric(df2[angle_col], errors='coerce')
     df2 = df2.dropna(subset=[speed_col, angle_col])
 
     # Normalizacja kąta 0–180°
@@ -109,7 +105,7 @@ def show_speed(df,
     ax.scatter(df2['angle_rad'], df2[speed_col], s=18, alpha=0.6, color='skyblue', label='pomiary')
     ax.scatter(-df2['angle_rad'], df2[speed_col], s=18, alpha=0.6, color='skyblue')
 
-    # Oblicz średnie prędkości w przedziałach kątowych
+    #średnie prędkości w przedziałach kątowych
     bin_edges = np.linspace(0, 180, bins + 1)
     bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
     inds = np.digitize(df2['angle'].values, bin_edges) - 1
@@ -121,7 +117,7 @@ def show_speed(df,
     mean_speeds = np.array(mean_speeds)
     valid = ~np.isnan(mean_speeds)
 
-    # Krzywa średniej (też symetrycznie)
+    # Krzywa średniej
     if valid.any():
         x = np.deg2rad(bin_centers[valid])
         y = mean_speeds[valid]
@@ -132,27 +128,31 @@ def show_speed(df,
     ax.set_title("Wykres biegunowy prędkości jachtu względem kąta do wiatru", va='bottom')
     ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1.05))
 
+    #zapis wykresu
     if save_path:
         fig.savefig(save_path, bbox_inches='tight', dpi=150)
 
     plt.show()
     return fig, ax
 
-
+#zapis danego kursu do pliku
 df[["kurs_typ", "hals"]] = df.apply(
     lambda row: pd.Series(classify_course(row["wiatr"], row["cog"])),
     axis=1
 )
 
+#zapis kata miedzy kursem a wiatrm do pliku
 df["kat_roznicy"] = df.apply(
     lambda row: abs((float(row["cog"]) - wind_map.get(str(row["wiatr"]).strip().upper(), 0)) % 360)
     if pd.notna(row["wiatr"]) and pd.notna(row["cog"]) else None,
     axis=1
 )
 
+#zapis excela z dodanymi danymi
 out_path = "../Inzynierka/Dziennik2024_wynik.xlsx"
 df.to_excel(out_path, index=False)
 
+#odczyt pliku z dodanymi danymi i rysowanie wykresu
 df_wynik = pd.read_excel(out_path)
 show_speed(df, save_path="../Inzynierka/wykres_prędkości.png",rmax=12,figsize=(10,8))
 
