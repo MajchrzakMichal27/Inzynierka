@@ -156,5 +156,12 @@ df.to_excel(out_path, index=False)
 df_wynik = pd.read_excel(out_path)
 show_speed(df, save_path="../Inzynierka/wykres_prędkości.png",rmax=12,figsize=(10,8))
 
+###TODO
+##PODZIELIC NA KATEGORIE WZGLĘDEM WIATRU I KURSU
+##SPRAWDZIC JAKIE BYŁY MAKSYMALNE PRĘDKOSĆI DLA ZADANYCH KATEGORII
+##SPRAWDZIC JAKIE BYŁO OŻAGLOWANIE
+##PRZEDSTAWIC W POSTACI MATEMATYCZNEJ -> PRZYSTĘPNEJ
+
+
 
 
