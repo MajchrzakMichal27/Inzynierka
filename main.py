@@ -18,8 +18,18 @@ wind_map = {
 
 #Klasyfikacja kierunków
 def classify_course(wind_dir, boat_course):
-    if pd.isna(wind_dir) or pd.isna(boat_course):
-        return None, None
+    """
+    Klasyfikuje kurs jachtu względem kierunku wiatru i określa stronę halsu.
+    - wind_dir: kierunek wiatru (np. 'N', 'NE', 'SW'); musi być obecny w słowniku wind_map
+    - boat_course: kurs jachtu w stopniach (float, 0–360)
+
+    Zwraca:
+    - course_type: tekstowy opis kursu względem wiatru
+      ('ostry bajdewind', 'bajdewind', 'pelny bajdewind', 'polwiatr',
+       'ostry baksztag', 'baksztag', 'pelny baksztag', 'fordewind')
+    - hals: strona halsu ('lewy' lub 'prawy')
+
+    """
 
     wind_dir = str(wind_dir).strip().upper()
     wind_deg = wind_map.get(wind_dir, None)
@@ -138,6 +148,7 @@ def show_speed(df,
 def group_by(df):
     help = df.groupby(["kurs_typ", "sila_wiatru"])["sog"].idxmax()
     df_grouped = df.loc[help,["kurs_typ", "sila_wiatru", "sog", "grot", "fok"]]
+   # df_grouped.sort_values("ostry_bajdewind", "bajdewind", "pelny_bajdewind", "polwiatr", "ostry_baksztag", "baksztag", "pelny_baksztag", "fordewind", inplace=True)
     return df_grouped
 
 #zapis danego kursu do pliku
@@ -161,9 +172,8 @@ df.to_excel(out_path, index=False)
 df_wynik = pd.read_excel(out_path)
 #show_speed(df, save_path="../Inzynierka/wykres_prędkości.png",rmax=12,figsize=(10,8))
 
-test = group_by(df_wynik)
-print(test)
-
+grupowanie = group_by(df_wynik)
+grupowanie.to_excel("../Inzynierka/grupowane.xlsx", index=False)
 
 
 
