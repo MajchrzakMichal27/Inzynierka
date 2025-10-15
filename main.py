@@ -135,6 +135,11 @@ def show_speed(df,
     plt.show()
     return fig, ax
 
+def group_by(df):
+    help = df.groupby(["kurs_typ", "sila_wiatru"])["sog"].idxmax()
+    df_grouped = df.loc[help,["kurs_typ", "sila_wiatru", "sog", "grot", "fok"]]
+    return df_grouped
+
 #zapis danego kursu do pliku
 df[["kurs_typ", "hals"]] = df.apply(
     lambda row: pd.Series(classify_course(row["wiatr"], row["cog"])),
@@ -154,13 +159,12 @@ df.to_excel(out_path, index=False)
 
 #odczyt pliku z dodanymi danymi i rysowanie wykresu
 df_wynik = pd.read_excel(out_path)
-show_speed(df, save_path="../Inzynierka/wykres_prędkości.png",rmax=12,figsize=(10,8))
+#show_speed(df, save_path="../Inzynierka/wykres_prędkości.png",rmax=12,figsize=(10,8))
 
-###TODO
-##PODZIELIC NA KATEGORIE WZGLĘDEM WIATRU I KURSU
-##SPRAWDZIC JAKIE BYŁY MAKSYMALNE PRĘDKOSĆI DLA ZADANYCH KATEGORII
-##SPRAWDZIC JAKIE BYŁO OŻAGLOWANIE
-##PRZEDSTAWIC W POSTACI MATEMATYCZNEJ -> PRZYSTĘPNEJ
+test = group_by(df_wynik)
+print(test)
+
+
 
 
 
