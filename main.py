@@ -146,10 +146,18 @@ def show_speed(df,
     return fig, ax
 
 def group_by(df):
-    help = df.groupby(["kurs_typ", "sila_wiatru"])["sog"].idxmax()
-    df_grouped = df.loc[help,["kurs_typ", "sila_wiatru", "sog", "grot", "fok"]]
-   # df_grouped.sort_values("ostry_bajdewind", "bajdewind", "pelny_bajdewind", "polwiatr", "ostry_baksztag", "baksztag", "pelny_baksztag", "fordewind", inplace=True)
+    """
+    Grupuje dane po rodzaju wiatru (kurs_typ, sila_wiatru) i wybiera
+    dwie największe prędkości (sog) dla każdej grupy.
+    Dopisuje odpowiadające im żagle (grot, fok).
+    """
+    df_grouped = (
+        df.groupby(["kurs_typ", "sila_wiatru"], group_keys=False)
+          .apply(lambda g: g.nlargest(2, "sog")[["kurs_typ", "sila_wiatru", "sog", "grot", "fok"]])
+          .reset_index(drop=True)
+    )
     return df_grouped
+
 
 #zapis danego kursu do pliku
 df[["kurs_typ", "hals"]] = df.apply(
