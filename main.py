@@ -153,7 +153,7 @@ def group_by(df):
     """
     df_grouped = (
         df.groupby(["kurs_typ", "sila_wiatru"], group_keys=False)
-          .apply(lambda g: g.nlargest(2, "sog")[["kurs_typ", "sila_wiatru", "sog", "grot", "fok"]])
+          .apply(lambda g: g.nlargest(2, "sog")[["kurs_typ", "sila_wiatru", "sog", "grot", "fok", "kat_roznicy"]])
           .reset_index(drop=True)
     )
     return df_grouped
