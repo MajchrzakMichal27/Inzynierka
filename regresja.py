@@ -8,84 +8,70 @@ import matplotlib.pyplot as plt
 # Wczytanie danych
 df = pd.read_excel("Dziennik2024_wynik.xlsx")
 
-# Wybieramy potrzebne kolumny - teraz 3 czynniki
-data = df[["sog", "sila_wiatru", "kat_roznicy"]]
+print("=== REGRESJA WIELOMIANOWA Z 4 ZMIENNYMI ===")
 
-# Przygotowanie danych - X ma teraz 2 kolumny
-X = df[["sila_wiatru", "kat_roznicy"]].values
+# Mapowanie żagli na powierzchnie
+powierzchnie_fok = {'F30': 30, 'F48': 48, 'F60': 60, 'G87': 87, 'G100': 100, 'S': 200, '-': 0}
+powierzchnie_grot = {'G': 70, 'G1': 56, 'G2': 42, 'G3': 28, '-': 0}
+
+# Dodajemy powierzchnie do danych
+df['powierzchnia_fok'] = df['fok'].map(powierzchnie_fok).fillna(0)
+df['powierzchnia_grot'] = df['grot'].map(powierzchnie_grot).fillna(42)
+
+# Przygotowanie danych - 4 zmienne
+X = df[["sila_wiatru", "kat_roznicy", "powierzchnia_fok", "powierzchnia_grot"]].values
 y = df["sog"].values
 
-print("Podgląd danych:")
-print(data.head())
-print(f"\nLiczba obserwacji: {len(data)}")
+print(f"Dane: {X.shape[0]} obserwacji, {X.shape[1]} zmiennych")
 
-# Model regresji liniowej (wielowymiarowej)
-model_lin = LinearRegression()
-model_lin.fit(X, y)
-y_pred_lin = model_lin.predict(X)
-
-# Model regresji wielomianowej (stopień 2) z interakcjami
+# Model regresji wielomianowej
 poly = PolynomialFeatures(degree=2, include_bias=False)
 X_poly = poly.fit_transform(X)
-model_poly = LinearRegression()
-model_poly.fit(X_poly, y)
-y_pred_poly = model_poly.predict(X_poly)
 
-# Obliczenia metryk
-mse_lin = mean_squared_error(y, y_pred_lin)
-r2_lin = r2_score(y, y_pred_lin)
+model = LinearRegression()
+model.fit(X_poly, y)
+y_pred = model.predict(X_poly)
 
-mse_poly = mean_squared_error(y, y_pred_poly)
-r2_poly = r2_score(y, y_pred_poly)
+# Metryki
+mse = mean_squared_error(y, y_pred)
+r2 = r2_score(y, y_pred)
 
-print("\n=== WYNIKI ===")
-print("=== MODEL LINIOWY ===")
-print(f"MSE: {mse_lin:.3f}")
-print(f"R²: {r2_lin:.3f}")
-print(f"Współczynniki: sila_wiatru={model_lin.coef_[0]:.3f}, kat_roznicy={model_lin.coef_[1]:.3f}")
-print(f"Intercept: {model_lin.intercept_:.3f}")
+print(f"\nWYNIK MODELU:")
+print(f"R²: {r2:.3f}")
+print(f"MSE: {mse:.3f}")
 
-print("\n=== MODEL WIELOMIANOWY (stopień 2) ===")
-print(f"MSE: {mse_poly:.3f}")
-print(f"R²: {r2_poly:.3f}")
+# Najważniejsze współczynniki
+feature_names = poly.get_feature_names_out(['wiatr', 'kat', 'fok', 'grot'])
+print(f"\nNAJWAŻNIEJSZE WSPÓŁCZYNNIKI:")
+for name, coef in zip(feature_names, model.coef_):
+    if abs(coef) > 0.01:
+        print(f"  {name}: {coef:.4f}")
 
-# Wyświetlenie nazw cech w modelu wielomianowym
-feature_names = poly.get_feature_names_out(['sila_wiatru', 'kat_roznicy'])
-print(f"\nCechy w modelu wielomianowym: {feature_names}")
-print(f"Współczynniki: {model_poly.coef_}")
 
-# Wizualizacja 3D
-from mpl_toolkits.mplot3d import Axes3D
+# Prosta funkcja przewidywania
+def przewidz(sila_wiatru, kat_roznicy, fok, grot):
+    pow_fok = powierzchnie_fok.get(fok, 0)
+    pow_grot = powierzchnie_grot.get(grot, 42)
 
-fig = plt.figure(figsize=(12, 5))
+    X_test = np.array([[sila_wiatru, kat_roznicy, pow_fok, pow_grot]])
+    X_test_poly = poly.transform(X_test)
 
-# Wykres 1: Dane rzeczywiste
-ax1 = fig.add_subplot(121, projection='3d')
-scatter1 = ax1.scatter(X[:, 0], X[:, 1], y, c=y, cmap='viridis', alpha=0.6)
-ax1.set_xlabel('Siła wiatru [B]')
-ax1.set_ylabel('Kąt różnicy [°]')
-ax1.set_zlabel('Prędkość (SOG) [węzły]')
-ax1.set_title('Dane rzeczywiste')
-plt.colorbar(scatter1, ax=ax1, label='SOG')
+    return model.predict(X_test_poly)[0]
 
-# Wykres 2: Predykcje modelu wielomianowego
-ax2 = fig.add_subplot(122, projection='3d')
-scatter2 = ax2.scatter(X[:, 0], X[:, 1], y_pred_poly, c=y_pred_poly, cmap='viridis', alpha=0.6)
-ax2.set_xlabel('Siła wiatru [B]')
-ax2.set_ylabel('Kąt różnicy [°]')
-ax2.set_zlabel('Prędkość (SOG) [węzły]')
-ax2.set_title('Predykcje modelu wielomianowego')
-plt.colorbar(scatter2, ax=ax2, label='SOG')
 
-plt.tight_layout()
-plt.show()
+# Test
+print(f"\nPRZYKŁADY PRZEWIDYWAŃ:")
 
-# Dodatkowa wizualizacja: zależność SOG od siły wiatru z uwzględnieniem kąta
-plt.figure(figsize=(10, 6))
-scatter = plt.scatter(X[:, 0], y, c=X[:, 1], cmap='viridis', alpha=0.7)
-plt.colorbar(scatter, label='Kąt różnicy [°]')
-plt.xlabel('Siła wiatru [B]')
-plt.ylabel('Prędkość jachtu (SOG) [węzły]')
-plt.title('Zależność prędkości jachtu od siły wiatru i kąta różnicy')
-plt.grid(True, alpha=0.3)
-plt.show()
+przyklady = [
+    (8, 50, 'G87', 'G1'),
+    (4, 170, 'F48', 'G3'),
+    (4, 170, 'S', 'G2'),
+    (4, 170, 'S', 'G1'),
+    (7, 45, 'G87', 'G1'),
+    (7, 45, 'F48', 'G1'),
+    (7, 45, 'F30', 'G3')
+]
+
+for i, (wiatr, kat, fok, grot) in enumerate(przyklady, 1):
+    pred = przewidz(wiatr, kat, fok, grot)
+    print(f"{i}. sila_wiatru: {wiatr}, kat_roznicy: {kat}, fok: {fok}, grot: {grot} -> {pred:.3f}")
