@@ -132,12 +132,9 @@ def rekomenduj_zagle(sila_wiatru, kat_roznicy, pokaz_wszystkie=False, top_n=5):
 
     # Dodatkowa analiza
     najlepszy = results[0]
-    najgorszy = results[-1]
 
-    print(f"\n📊 ANALIZA:")
     print(f"Najszybsza kombinacja: {najlepszy['fok']} + {najlepszy['grot']} -> {najlepszy['predkosc']:.3f} ")
-    print(f"Najwolniejsza kombinacja: {najgorszy['fok']} + {najgorszy['grot']} -> {najgorszy['predkosc']:.3f} ")
-    print(f"Różnica: {najlepszy['predkosc'] - najgorszy['predkosc']:.3f} ")
+
 
     return results
 
@@ -149,22 +146,17 @@ print("=" * 80)
 
 # Przykładowe scenariusze
 scenariusze = [
-    (8, 50, "Optymalne warunki - pełny wiatr boczny"),
-    (4, 170, "Słaby wiatr z tyłu"),
-    (2, 30, "Silny wiatr pod ostrym kątem"),
-    (6, 90, "Umiarkowany wiatr - baksztag"),
-    (5, 45, "Bardzo silny wiatr")
+    (8, 50,)
+
 ]
 
-for wiatr, kat, opis in scenariusze:
+for wiatr, kat in scenariusze:
     rekomenduj_zagle(wiatr, kat, pokaz_wszystkie=False, top_n=3)
-    print(f"\n💡 Komentarz: {opis}")
     print("\n" + "-" * 60)
 
 # Możliwość ręcznego testowania
 print("\n🎯 TESTUJ SWOJE WARUNKI:")
 while True:
-    try:
         print("\nPodaj warunki (lub 'q' aby zakończyć):")
         wiatr = input("Siła wiatru: ")
         if wiatr.lower() == 'q':
@@ -184,8 +176,3 @@ while True:
             top_n = int(input("Ile top kombinacji pokazać? "))
             rekomenduj_zagle(wiatr, kat, pokaz_wszystkie=False, top_n=top_n)
 
-    except ValueError:
-        print("❌ Błąd: Podaj poprawne liczby!")
-    except KeyboardInterrupt:
-        print("\nDo widzenia!")
-        break
