@@ -3,22 +3,21 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, r2_score
-import matplotlib.pyplot as plt
 
 # Wczytanie danych
 df = pd.read_excel("Dziennik2024_wynik.xlsx")
 
-print("=== REGRESJA WIELOMIANOWA Z 4 ZMIENNYMI ===")
+print("=== SYSTEM REKOMENDACJI ŻAGLI ===")
 
 # Mapowanie żagli na powierzchnie
-powierzchnie_fok = {'F30': 30, 'F48': 48, 'F60': 60, 'G87': 87, 'G100': 100, 'S': 200, '-': 0}
+powierzchnie_fok = {'F30': 30, 'F48': 48, 'F60': 60, 'G87': 87, 'G87 ': 87, 'G100': 100, 'S': 200, '-': 0}
 powierzchnie_grot = {'G': 70, 'G1': 56, 'G2': 42, 'G3': 28, '-': 0}
 
 # Dodajemy powierzchnie do danych
 df['powierzchnia_fok'] = df['fok'].map(powierzchnie_fok).fillna(0)
 df['powierzchnia_grot'] = df['grot'].map(powierzchnie_grot).fillna(42)
 
-# Przygotowanie danych - 4 zmienne
+# Przygotowanie danych
 X = df[["sila_wiatru", "kat_roznicy", "powierzchnia_fok", "powierzchnia_grot"]].values
 y = df["sog"].values
 
@@ -30,25 +29,8 @@ X_poly = poly.fit_transform(X)
 
 model = LinearRegression()
 model.fit(X_poly, y)
-y_pred = model.predict(X_poly)
-
-# Metryki
-mse = mean_squared_error(y, y_pred)
-r2 = r2_score(y, y_pred)
-
-print(f"\nWYNIK MODELU:")
-print(f"R²: {r2:.3f}")
-print(f"MSE: {mse:.3f}")
-
-# Najważniejsze współczynniki
-feature_names = poly.get_feature_names_out(['wiatr', 'kat', 'fok', 'grot'])
-print(f"\nNAJWAŻNIEJSZE WSPÓŁCZYNNIKI:")
-for name, coef in zip(feature_names, model.coef_):
-    if abs(coef) > 0.01:
-        print(f"  {name}: {coef:.4f}")
 
 
-# Prosta funkcja przewidywania
 def przewidz(sila_wiatru, kat_roznicy, fok, grot):
     pow_fok = powierzchnie_fok.get(fok, 0)
     pow_grot = powierzchnie_grot.get(grot, 42)
@@ -56,22 +38,154 @@ def przewidz(sila_wiatru, kat_roznicy, fok, grot):
     X_test = np.array([[sila_wiatru, kat_roznicy, pow_fok, pow_grot]])
     X_test_poly = poly.transform(X_test)
 
-    return model.predict(X_test_poly)[0]
+    predkosc = model.predict(X_test_poly)[0]
+
+    powierzchnia = pow_grot + pow_fok
 
 
-# Test
-print(f"\nPRZYKŁADY PRZEWIDYWAŃ:")
 
-przyklady = [
-    (8, 50, 'G87', 'G1'),
-    (4, 170, 'F48', 'G3'),
-    (4, 170, 'S', 'G2'),
-    (4, 170, 'S', 'G1'),
-    (7, 45, 'G87', 'G1'),
-    (7, 45, 'F48', 'G1'),
-    (7, 45, 'F30', 'G3')
+    if kat_roznicy < 140 and fok == 'S':
+        predkosc = 0
+
+    if sila_wiatru == 4 and kat_roznicy < 120 and powierzchnia > 150:
+        predkosc = predkosc - 0.2
+
+    if sila_wiatru == 5 and kat_roznicy < 120 and powierzchnia > 150:
+        predkosc = predkosc - 0.6
+
+    if sila_wiatru == 6 and kat_roznicy < 120 and powierzchnia > 150:
+        predkosc = predkosc -1
+
+    if sila_wiatru == 7 and kat_roznicy < 120 and powierzchnia > 150:
+        predkosc = predkosc - 1,6
+
+    if sila_wiatru == 8 and kat_roznicy < 120 and powierzchnia > 150:
+        predkosc = predkosc - 2
+
+
+
+
+    return predkosc
+
+
+# Funkcja do znajdowania unikalnych kombinacji żagli z danych
+def znajdz_unikalne_kombinacje_zagli(df):
+    kombinacje = df[['fok', 'grot']].drop_duplicates()
+    # Filtrujemy tylko sensowne kombinacje (nie puste)
+    kombinacje = kombinacje[(kombinacje['fok'] != '-') & (kombinacje['grot'] != '-')]
+    return kombinacje.to_dict('records')
+
+
+# Główna funkcja rekomendacji
+def rekomenduj_zagle(sila_wiatru, kat_roznicy, pokaz_wszystkie=False, top_n=5):
+    print(f"\n{'=' * 60}")
+    print(f"REKOMENDACJE ŻAGLI DLA:")
+    print(f"Siła wiatru: {sila_wiatru} ")
+    print(f"Kąt względem wiatru: {kat_roznicy}°")
+    print(f"{'=' * 60}")
+
+    # Znajdź wszystkie unikalne kombinacje żagli z danych historycznych
+    kombinacje = znajdz_unikalne_kombinacje_zagli(df)
+
+    results = []
+
+    for komb in kombinacje:
+        fok = komb['fok']
+        grot = komb['grot']
+
+        # Przewidywana prędkość
+        predkosc = przewidz(sila_wiatru, kat_roznicy, fok, grot)
+
+        # Dodajemy informacje o powierzchni
+        pow_fok = powierzchnie_fok[fok]
+        pow_grot = powierzchnie_grot[grot]
+        calkowita_pow = pow_fok + pow_grot
+
+        results.append({
+            'fok': fok,
+            'grot': grot,
+            'predkosc': predkosc,
+            'pow_fok': pow_fok,
+            'pow_grot': pow_grot,
+            'calkowita_pow': calkowita_pow
+        })
+
+    # Sortuj od najszybszej do najwolniejszej
+    results.sort(key=lambda x: x['predkosc'], reverse=True)
+
+    if pokaz_wszystkie:
+        print(f"\nWSZYSTKIE KOMBINACJE ({len(results)}):")
+        for i, res in enumerate(results, 1):
+            print(f"{i:2d}. {res['fok']:4s} + {res['grot']:3s} -> {res['predkosc']:.3f}  "
+                  f"(pow: {res['calkowita_pow']:3d}m²)")
+    else:
+        print(f"\nTOP {top_n} NAJLEPSZYCH KOMBINACJI:")
+        for i, res in enumerate(results[:top_n], 1):
+            print(f"{i}. {res['fok']} + {res['grot']} -> {res['predkosc']:.3f}  "
+                  f"(powierzchnia: {res['calkowita_pow']}m²)")
+
+            # Dodajemy krótką analizę dla top kombinacji
+            if i == 1:
+                print(f"   🏆 NAJLEPSZY WYBÓR!")
+            elif res['predkosc'] > results[0]['predkosc'] * 0.95:
+                print(f"   💡 BARDZO DOBRY WYBÓR (prawie tak dobry jak najlepszy)")
+
+    # Dodatkowa analiza
+    najlepszy = results[0]
+    najgorszy = results[-1]
+
+    print(f"\n📊 ANALIZA:")
+    print(f"Najszybsza kombinacja: {najlepszy['fok']} + {najlepszy['grot']} -> {najlepszy['predkosc']:.3f} ")
+    print(f"Najwolniejsza kombinacja: {najgorszy['fok']} + {najgorszy['grot']} -> {najgorszy['predkosc']:.3f} ")
+    print(f"Różnica: {najlepszy['predkosc'] - najgorszy['predkosc']:.3f} ")
+
+    return results
+
+
+# Test systemu rekomendacji
+print("\n" + "=" * 80)
+print("TEST SYSTEMU REKOMENDACJI ŻAGLI")
+print("=" * 80)
+
+# Przykładowe scenariusze
+scenariusze = [
+    (8, 50, "Optymalne warunki - pełny wiatr boczny"),
+    (4, 170, "Słaby wiatr z tyłu"),
+    (2, 30, "Silny wiatr pod ostrym kątem"),
+    (6, 90, "Umiarkowany wiatr - baksztag"),
+    (5, 45, "Bardzo silny wiatr")
 ]
 
-for i, (wiatr, kat, fok, grot) in enumerate(przyklady, 1):
-    pred = przewidz(wiatr, kat, fok, grot)
-    print(f"{i}. sila_wiatru: {wiatr}, kat_roznicy: {kat}, fok: {fok}, grot: {grot} -> {pred:.3f}")
+for wiatr, kat, opis in scenariusze:
+    rekomenduj_zagle(wiatr, kat, pokaz_wszystkie=False, top_n=3)
+    print(f"\n💡 Komentarz: {opis}")
+    print("\n" + "-" * 60)
+
+# Możliwość ręcznego testowania
+print("\n🎯 TESTUJ SWOJE WARUNKI:")
+while True:
+    try:
+        print("\nPodaj warunki (lub 'q' aby zakończyć):")
+        wiatr = input("Siła wiatru: ")
+        if wiatr.lower() == 'q':
+            break
+        kat = input("Kąt względem wiatru [°]: ")
+        if kat.lower() == 'q':
+            break
+
+        wiatr = float(wiatr)
+        kat = float(kat)
+
+        pokaz_wszystkie = input("Pokazać wszystkie kombinacje? (t/n): ").lower() == 't'
+
+        if pokaz_wszystkie:
+            rekomenduj_zagle(wiatr, kat, pokaz_wszystkie=True)
+        else:
+            top_n = int(input("Ile top kombinacji pokazać? "))
+            rekomenduj_zagle(wiatr, kat, pokaz_wszystkie=False, top_n=top_n)
+
+    except ValueError:
+        print("❌ Błąd: Podaj poprawne liczby!")
+    except KeyboardInterrupt:
+        print("\nDo widzenia!")
+        break
