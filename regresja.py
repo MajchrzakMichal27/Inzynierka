@@ -17,8 +17,12 @@ powierzchnie_grot = {'G': 70, 'G1': 56, 'G2': 42, 'G3': 28, '-': 0}
 df['powierzchnia_fok'] = df['fok'].map(powierzchnie_fok).fillna(0)
 df['powierzchnia_grot'] = df['grot'].map(powierzchnie_grot).fillna(42)
 
-# Przygotowanie danych
-X = df[["sila_wiatru", "kat_roznicy", "powierzchnia_fok", "powierzchnia_grot"]].values
+# Oblicz funkcję dla każdego wiersza (dla treningu modelu)
+kat = df["kat_roznicy"].values
+df['funkcja'] = (4 / 360) * (3 ** (kat / 15)) + (37 / 40)
+
+# Przygotowanie danych - TERAZ z funkcją jako 5. zmienna
+X = df[["sila_wiatru", "kat_roznicy", "powierzchnia_fok", "powierzchnia_grot", "funkcja"]].values
 y = df["sog"].values
 
 print(f"Dane: {X.shape[0]} obserwacji, {X.shape[1]} zmiennych")
@@ -30,40 +34,29 @@ X_poly = poly.fit_transform(X)
 model = LinearRegression()
 model.fit(X_poly, y)
 
+print(f"Liczba cech po transformacji wielomianowej: {X_poly.shape[1]}")
+
+
+def oblicz_funkcje(kat_roznicy):
+    """Oblicza wartość funkcji dla podanego kąta"""
+    return (4 / 360) * (3 ** (kat_roznicy / 15)) + (37 / 40)
+
 
 def przewidz(sila_wiatru, kat_roznicy, fok, grot):
     pow_fok = powierzchnie_fok.get(fok, 0)
     pow_grot = powierzchnie_grot.get(grot, 42)
 
-    X_test = np.array([[sila_wiatru, kat_roznicy, pow_fok, pow_grot]])
+    # Oblicz funkcję dla konkretnego kąta
+    funkcja_wartosc = oblicz_funkcje(kat_roznicy)
+
+    # Tworzymy wektor z 5 zmiennymi
+    X_test = np.array([[sila_wiatru, kat_roznicy, pow_fok, pow_grot, funkcja_wartosc]])
     X_test_poly = poly.transform(X_test)
 
     predkosc = model.predict(X_test_poly)[0]
 
-    powierzchnia = pow_grot + pow_fok
-
-
-
-    if kat_roznicy < 140 and fok == 'S':
-        predkosc = 0
-
-    if sila_wiatru == 4 and kat_roznicy < 120 and powierzchnia > 150:
-        predkosc = predkosc - 0.2
-
-    if sila_wiatru == 5 and kat_roznicy < 120 and powierzchnia > 150:
-        predkosc = predkosc - 0.6
-
-    if sila_wiatru == 6 and kat_roznicy < 120 and powierzchnia > 150:
-        predkosc = predkosc -1
-
-    if sila_wiatru == 7 and kat_roznicy < 120 and powierzchnia > 150:
-        predkosc = predkosc - 1,6
-
-    if sila_wiatru == 8 and kat_roznicy < 120 and powierzchnia > 150:
-        predkosc = predkosc - 2
-
-
-
+    if kat_roznicy < 120 and fok == 'S':
+        predkosc = 1
 
     return predkosc
 
@@ -71,7 +64,6 @@ def przewidz(sila_wiatru, kat_roznicy, fok, grot):
 # Funkcja do znajdowania unikalnych kombinacji żagli z danych
 def znajdz_unikalne_kombinacje_zagli(df):
     kombinacje = df[['fok', 'grot']].drop_duplicates()
-    # Filtrujemy tylko sensowne kombinacje (nie puste)
     kombinacje = kombinacje[(kombinacje['fok'] != '-') & (kombinacje['grot'] != '-')]
     return kombinacje.to_dict('records')
 
@@ -83,6 +75,10 @@ def rekomenduj_zagle(sila_wiatru, kat_roznicy, pokaz_wszystkie=False, top_n=5):
     print(f"Siła wiatru: {sila_wiatru} ")
     print(f"Kąt względem wiatru: {kat_roznicy}°")
     print(f"{'=' * 60}")
+
+    # Oblicz funkcję dla tego konkretnego kąta
+    funkcja_wartosc = oblicz_funkcje(kat_roznicy)
+    print(f"Wartość funkcji dla kąta {kat_roznicy}°: {funkcja_wartosc:.4f}")
 
     # Znajdź wszystkie unikalne kombinacje żagli z danych historycznych
     kombinacje = znajdz_unikalne_kombinacje_zagli(df)
@@ -132,9 +128,7 @@ def rekomenduj_zagle(sila_wiatru, kat_roznicy, pokaz_wszystkie=False, top_n=5):
 
     # Dodatkowa analiza
     najlepszy = results[0]
-
-    print(f"Najszybsza kombinacja: {najlepszy['fok']} + {najlepszy['grot']} -> {najlepszy['predkosc']:.3f} ")
-
+    print(f"\nNajszybsza kombinacja: {najlepszy['fok']} + {najlepszy['grot']} -> {najlepszy['predkosc']:.3f} ")
 
     return results
 
@@ -146,8 +140,7 @@ print("=" * 80)
 
 # Przykładowe scenariusze
 scenariusze = [
-    (8, 50,)
-
+    (8, 50),
 ]
 
 for wiatr, kat in scenariusze:
@@ -157,6 +150,7 @@ for wiatr, kat in scenariusze:
 # Możliwość ręcznego testowania
 print("\n🎯 TESTUJ SWOJE WARUNKI:")
 while True:
+    try:
         print("\nPodaj warunki (lub 'q' aby zakończyć):")
         wiatr = input("Siła wiatru: ")
         if wiatr.lower() == 'q':
@@ -175,4 +169,8 @@ while True:
         else:
             top_n = int(input("Ile top kombinacji pokazać? "))
             rekomenduj_zagle(wiatr, kat, pokaz_wszystkie=False, top_n=top_n)
-
+    except ValueError:
+        print("Błąd! Wprowadź poprawne wartości.")
+    except KeyboardInterrupt:
+        print("\nZakończono program.")
+        break
