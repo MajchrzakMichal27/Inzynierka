@@ -145,6 +145,27 @@ def show_speed(df,
     plt.show()
     return fig, ax
 
+def filtruj(df):
+    """
+    Usuwa co 2 wiersz, w którym łączna powierzchnia żagli > 140 m2.
+    Zwraca NOWY DataFrame, nie zmienia oryginału.
+    """
+    df_new = df.copy()
+
+    powierzchnie_fok = {'F30': 30, 'F48': 48, 'F60': 60, 'G87': 87, 'G87 ': 87, 'G100': 100, 'S': 200, '-': 0}
+    powierzchnie_grot = {'G': 70, 'G1': 56, 'G2': 42, 'G3': 28, '-': 0}
+
+    df_new['pow_fok'] = df_new['fok'].map(powierzchnie_fok).fillna(0)
+    df_new['pow_grot'] = df_new['grot'].map(powierzchnie_grot).fillna(42)
+    df_new['calkowita_pow'] = df_new['pow_fok'] + df_new['pow_grot']
+
+    idx_duze = df_new[df_new['calkowita_pow'] > 100].index.tolist()
+    idx_do_usuniecia = [idx for i, idx in enumerate(idx_duze) if i % 2 == 1]
+
+    print(f"Usuwam {len(idx_do_usuniecia)} z {len(idx_duze)} rekordów z >140m²")
+    return df_new.drop(index=idx_do_usuniecia)
+
+
 def group_by(df):
     """
     Grupuje dane po rodzaju wiatru (kurs_typ, sila_wiatru) i wybiera
@@ -158,6 +179,15 @@ def group_by(df):
     )
     return df_grouped
 
+def rozdziel_plik(df):
+
+    df_regaty = df.iloc[:212] if len(df) > 212 else df.copy()
+    df_regaty.to_excel("../Inzynierka/Dziennik2024_regaty_test.xlsx", index=False)
+
+    wiersze = list(range(0,2))+list(range(214,len(df)))
+    df_turystyka = df.iloc[wiersze]
+    df_turystyka.to_excel("../Inzynierka/Dziennik2024_turystyka_test.xlsx", index=False)
+    return
 
 #zapis danego kursu do pliku
 df[["kurs_typ", "hals"]] = df.apply(
@@ -180,8 +210,14 @@ df.to_excel(out_path, index=False)
 df_wynik = pd.read_excel(out_path)
 #show_speed(df, save_path="../Inzynierka/wykres_prędkości.png",rmax=12,figsize=(10,8))
 
+#usunięcie większości rekordów gdzie żagle mają powyzej 140m2
+df_filtered = filtruj(df)
+df_filtered.to_excel("../Inzynierka/Dziennik2024_filtred.xlsx", index=False)
+
 grupowanie = group_by(df_wynik)
 grupowanie.to_excel("../Inzynierka/grupowane.xlsx", index=False)
+
+rozdziel_plik(df_wynik)
 
 
 

@@ -5,7 +5,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, r2_score
 
 # Wczytanie danych
-df = pd.read_excel("Dziennik2024_wynik.xlsx")
+df = pd.read_excel("Dziennik2024_turystyka_test.xlsx")
 
 print("=== SYSTEM REKOMENDACJI ŻAGLI ===")
 
@@ -52,11 +52,11 @@ def przewidz(sila_wiatru, kat_roznicy, fok, grot):
     predkosc = model.predict(X_test_poly)[0]
 
     # OBLICZ KARĘ
-    calkowita_pow = pow_fok + pow_grot
-    kara = oblicz_kare(sila_wiatru, kat_roznicy, calkowita_pow)
+    #calkowita_pow = pow_fok + pow_grot
+    #kara = oblicz_kare(sila_wiatru, kat_roznicy, calkowita_pow)
 
     # ZASTOSUJ KARĘ
-    predkosc *= (1 - kara)
+    #predkosc *= (1 - kara)
 
     # Dodatkowa kara dla spinnakera przy małych kątach
     if fok == 'S' and kat_roznicy < 120:
